@@ -14,52 +14,46 @@ export const ApiGuideModal: React.FC<ApiGuideModalProps> = ({ onClose }) => {
     setTimeout(() => setCopiedSection(null), 2000);
   };
 
-  const sampleExpressRoute = `// server.ts or your backend route:
-import express from 'express';
+  const serverlessAvailabilitySnippet = `// /api/carparkavailability.ts - Live Serverless LTA DataMall Proxy
+// GET /api/carparkavailability
+// Automatically attaches:
+// Header: AccountKey: process.env.ACCOUNT_KEY
 
-const app = express();
-const LTA_API_KEY = process.env.LTA_DATAMALL_KEY; // your free LTA DataMall key
+// Example response when ACCOUNT_KEY is set:
+{
+  "odata.metadata": "https://datamall2.mytransport.sg/ltaodataservice/$metadata#CarParkAvailabilityv2",
+  "status": "live",
+  "isConfigured": true,
+  "totalFetched": 500,
+  "value": [
+    {
+      "CarParkID": "MBFC",
+      "Area": "Marina",
+      "Development": "Marina Bay Financial Centre",
+      "Location": "1.2801 103.8543",
+      "AvailableLots": 194,
+      "LotType": "C",
+      "Agency": "LTA"
+    }
+  ]
+}`;
 
-app.get('/api/carparks', async (req, res) => {
-  try {
-    // 1. Fetch real-time LTA DataMall v2 lots
-    const ltaResponse = await fetch(
-      'https://datamall2.mytransport.sg/ltaodataservice/CarParkAvailabilityv2',
-      {
-        headers: {
-          AccountKey: LTA_API_KEY || '',
-          accept: 'application/json',
-        },
-      }
-    );
-    const data = await ltaResponse.json();
-    
-    // 2. data.value contains:
-    // [{ CarParkID: "MBFC", Area: "Marina", Development: "Marina Bay Financial Centre",
-    //    AvailableLots: 194, LotType: "C", Agency: "LTA" }, ...]
-    res.json(data.value);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch LTA carpark data' });
+  const serverlessHealthSnippet = `// /api/health.ts - Health Check Endpoint
+// GET /api/health
+
+{
+  "status": "ok",
+  "timestamp": "2026-11-10T04:00:00.000Z",
+  "service": "Singapore LTA Carpark Tracker Serverless API",
+  "environment": {
+    "nodeEnv": "development",
+    "hasAccountKey": false // turns true once ACCOUNT_KEY is provided
+  },
+  "endpoints": {
+    "carparkAvailability": "/api/carparkavailability",
+    "ltaDataMallUpstream": "https://datamall2.mytransport.sg/ltaodataservice/CarParkAvailabilityv2"
   }
-});`;
-
-  const sampleDataGovRoute = `// Alternative: Data.gov.sg HDB Real-Time Carpark Availability
-// GET https://api.data.gov.sg/v1/transport/carpark-availability
-// No API key required!
-
-const response = await fetch('https://api.data.gov.sg/v1/transport/carpark-availability');
-const result = await response.json();
-// returns:
-// {
-//   items: [{
-//     timestamp: "2026-11-09T19:30:00+08:00",
-//     carpark_data: [{
-//       carpark_number: "ACB",
-//       carpark_info: [{ total_lots: "540", lot_type: "C", lots_available: "165" }],
-//       update_datetime: "2026-11-09T19:28:45"
-//     }]
-//   }]
-// }`;
+}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
@@ -147,18 +141,18 @@ const result = await response.json();
             </div>
           </div>
 
-          {/* Express Proxy Snippet */}
+          {/* Serverless Live Carpark Availability Snippet */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-slate-200 flex items-center gap-1.5">
                 <Terminal className="w-4 h-4 text-emerald-400" />
-                <span>Backend Express Proxy (To avoid CORS in browsers)</span>
+                <span>/api/carparkavailability.ts (Serverless Upstream Connection)</span>
               </span>
               <button
-                onClick={() => copyToClipboard(sampleExpressRoute, 'express')}
+                onClick={() => copyToClipboard(serverlessAvailabilitySnippet, 'availability')}
                 className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] font-medium text-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
               >
-                {copiedSection === 'express' ? (
+                {copiedSection === 'availability' ? (
                   <>
                     <Check className="w-3 h-3 text-emerald-400" />
                     <span>Copied!</span>
@@ -172,21 +166,21 @@ const result = await response.json();
               </button>
             </div>
             <pre className="p-3 bg-slate-950 border border-slate-800 rounded-lg font-mono text-[11px] overflow-x-auto text-emerald-300/90 leading-relaxed">
-              {sampleExpressRoute}
+              {serverlessAvailabilitySnippet}
             </pre>
           </div>
 
-          {/* data.gov.sg snippet */}
+          {/* Health Check Snippet */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-slate-200">
-                data.gov.sg Response Structure
+                /api/health.ts (Serverless Health & Env Key Check)
               </span>
               <button
-                onClick={() => copyToClipboard(sampleDataGovRoute, 'datagov')}
+                onClick={() => copyToClipboard(serverlessHealthSnippet, 'health')}
                 className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] font-medium text-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
               >
-                {copiedSection === 'datagov' ? (
+                {copiedSection === 'health' ? (
                   <>
                     <Check className="w-3 h-3 text-emerald-400" />
                     <span>Copied!</span>
@@ -200,7 +194,7 @@ const result = await response.json();
               </button>
             </div>
             <pre className="p-3 bg-slate-950 border border-slate-800 rounded-lg font-mono text-[11px] overflow-x-auto text-sky-300/90 leading-relaxed">
-              {sampleDataGovRoute}
+              {serverlessHealthSnippet}
             </pre>
           </div>
         </div>

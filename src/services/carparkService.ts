@@ -193,24 +193,71 @@ export class CarparkService {
   }
 
   /**
-   * BACKEND INTEGRATION SPECIFICATION:
-   * When integrating real backend connections, this method can be pointed to:
-   * 1. Your Express server `/api/carparks` route
-   * 2. LTA DataMall v2: https://datamall2.mytransport.sg/ltaodataservice/CarParkAvailabilityv2
-   * 3. data.gov.sg: https://api.data.gov.sg/v1/transport/carpark-availability
+   * LTA DATAMALL INTEGRATION METHOD:
+   * Connects to the serverless /api/carparkavailability endpoint.
+   * If ACCOUNT_KEY is set in the environment, it merges real-time LTA DataMall lots.
+   * If not set yet, it returns the structured carparks with a pending configuration notice.
    */
-  static async fetchFromBackend(apiUrl: string = '/api/carparks'): Promise<Carpark[]> {
+  static async fetchFromLTADataMall(
+    apiUrl: string = '/api/carparkavailability'
+  ): Promise<{ carparks: Carpark[]; isLive: boolean; message?: string }> {
     try {
       const res = await fetch(apiUrl);
       if (!res.ok) {
-        throw new Error(`Backend responded with status: ${res.status}`);
+        throw new Error(`HTTP ${res.status}`);
       }
       const data = await res.json();
-      // Returns mapped Carpark array once connected
-      return data;
-    } catch (err) {
-      console.warn('Backend connection not yet configured. Using client data engine.', err);
-      return this.getCarparks();
+
+      if (data.status === 'live' && Array.isArray(data.value) && data.value.length > 0) {
+        const current = this.getCarparks();
+        const updated = current.map((cp) => {
+          const matches = data.value.filter(
+            (r: any) =>
+              r.CarParkID === cp.id ||
+              (r.Development &&
+                cp.name.toLowerCase().includes(r.Development.toLowerCase()))
+          );
+
+          if (matches.length > 0) {
+            const updatedLots = cp.lots.map((lot) => {
+              const matchLot = matches.find((m: any) => m.LotType === lot.lotType);
+              if (matchLot && typeof matchLot.AvailableLots === 'number') {
+                return { ...lot, lotsAvailable: matchLot.AvailableLots };
+              }
+              return lot;
+            });
+            return {
+              ...cp,
+              lots: updatedLots,
+              lastUpdated: 'Live LTA DataMall',
+            };
+          }
+          return cp;
+        });
+
+        return { carparks: updated, isLive: true };
+      }
+
+      return {
+        carparks: this.getCarparks(),
+        isLive: false,
+        message: data.message,
+      };
+    } catch (err: any) {
+      console.warn('Could not reach /api/carparkavailability:', err?.message || err);
+      return { carparks: this.getCarparks(), isLive: false };
     }
+  }
+
+  /**
+   * BACKEND INTEGRATION SPECIFICATION:
+   * When integrating real backend connections, this method can be pointed to:
+   * 1. Your Express server `/api/carparkavailability` route
+   * 2. LTA DataMall v2: https://datamall2.mytransport.sg/ltaodataservice/CarParkAvailabilityv2
+   * 3. data.gov.sg: https://api.data.gov.sg/v1/transport/carpark-availability
+   */
+  static async fetchFromBackend(apiUrl: string = '/api/carparkavailability'): Promise<Carpark[]> {
+    const result = await this.fetchFromLTADataMall(apiUrl);
+    return result.carparks;
   }
 }
